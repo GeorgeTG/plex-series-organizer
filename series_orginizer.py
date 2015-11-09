@@ -3,8 +3,10 @@
 import argparse
 import re
 from os import listdir, symlink, makedirs, remove
-from os.path import isfile, join, splitext, isdir, abspath
+from os.path import isfile, join, splitext, isdir, abspath, basename
 from sys import argv,exit
+
+MARGIN = 16
 
 class Colors(object):
     OKB= '\033[94m'
@@ -25,9 +27,12 @@ class Colors(object):
     RST = '\033[0m'
 
     @staticmethod
+    def print_sep(length):
+        print('-' * (length + MARGIN))
+
+    @staticmethod
     def print_header(text):
         print(Colors.MAG + Colors.BLD + text + Colors.RST)
-
     @staticmethod
     def print_entry(entry):
         print(Colors.RED + ']> ' + Colors.GRN + entry + Colors.RST)
@@ -37,12 +42,14 @@ class Colors(object):
         for item in list_p:
             Colors.print_entry(item)
 
-    def print_dict(dict_p, enum=False):
+    def print_dict(dict_p, fmt='{0} <-> {1}'):
         for key, value in dict_p.items():
-            Colors.print_entry('{0} <-> {1}'.format(key, value))
+            Colors.print_entry(fmt.format(key, value))
 
     @staticmethod
-    def print_c(color, text):
+    def print(color, text):
+        if isinstance(color, str):
+            color = Colors.__dict__[color]
         print(color + text + Colors.RST)
 
     @staticmethod
@@ -163,19 +170,15 @@ def scan_dir(directory, pattern):
     #get all files from directory
     files = dir_getfiles(directory)
 
-    Colors.print_header('Scanning for files...')
     for candinate in files:
         match = regex.match(candinate)
         if match:
             if len(match.groups()) != 1:
-                print("File: {0} didn't match correctly".format(candinate))
+                Colors.print_wrn("File: {0} didn't match correctly".format(candinate))
                 continue
             else:
                 #we have a match and a group to obtain ep. number specified
                 ep_num = match.group(1)
-
-                Colors.print_entry('Matched episode [{0}] number: [{1}]'\
-                        .format(candinate, ep_num))
                 matched_files[ep_num] = candinate
 
     return matched_files
@@ -242,10 +245,18 @@ def prepare_links(files, series_info, episode_names=None):
     return links_map
 
 def fix_with_file(files, series_info, options):
+    Colors.print('CYN', 'Source directory: ' + files.source_dir)
+    Colors.print_dict(files.original, 'Matched episode [{1}] number: [{0}]')
+    if options.create_dirs:
+        files.dest_dir = join(
+                files.dest_dir,
+                series_info.name,
+                'Season {0:0>2}'.format(series_info.season)
+        )
     if files.episodes_file and check_file(files.episodes_file):
         episode_names = parse_episodes_file(files.episodes_file)
         if len(episode_names) > 0:
-            Colors.print_header('Found in episodes file:')
+            Colors.print_header('\nFound in episodes file:')
             Colors.print_dict(episode_names)
             if len(files.original) != len(episode_names):
                 Colors.print_wrn(
@@ -254,17 +265,12 @@ def fix_with_file(files, series_info, options):
             episode_names = None
     else:
         episode_names = None
-    if options.create_dirs:
-        files.dest_dir = join(
-                files.dest_dir,
-                series_info.name,
-                'Season {0:0>2}'.format(series_info.season)
-        )
 
     links_map = prepare_links(files, series_info, episode_names)
 
+    Colors.print('CYN', '\nDestination directory: ' + files.dest_dir)
     Colors.print_header('Theese links will be created:')
-    Colors.print_list(list(links_map.values()))
+    Colors.print_list(basename(f) for f in links_map.values())
     if not prompt_yes_no("Continue?"):
         print('Aborting...')
         exit(0)
@@ -275,7 +281,7 @@ def fix_with_file(files, series_info, options):
     for source, dest in links_map.items():
         #Force is specified, delete dest file
         if options.force and isfile(dest):
-            print('[-f] Deleting existing file link {0}'.format(dest))
+            print('[-f] Deleting existing file: {0}'.format(basename(dest)))
             remove(dest)
 
         try:
@@ -283,6 +289,7 @@ def fix_with_file(files, series_info, options):
         except Exception as ex:
             print(str(ex))
 
+    Colors.print_header('Done!')
 
 def main():
     args = parse_args()
