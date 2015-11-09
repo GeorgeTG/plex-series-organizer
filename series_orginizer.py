@@ -227,11 +227,11 @@ def prepare_links(files, series_info, episode_names=None):
         if not files.dest_dir:
             files.dest_dir = files.source_dir
 
+        episode_info.name = None #default
         if episode_names:
             if ep_num in episode_names:
                 episode_info.name = episode_names[ep_num]
             else:
-                episode_info.name = None
                 Colors.print_wrn('Episode[{0}] not found in episodes file'.\
                         format(ep_num))
 
@@ -247,14 +247,13 @@ def fix_with_file(files, series_info, options):
         if len(episode_names) > 0:
             Colors.print_header('Found in episodes file:')
             Colors.print_dict(episode_names)
+            if len(files.original) != len(episode_names):
+                Colors.print_wrn(
+                        "Number of episodes mathced differs from definitions in file")
         else:
             episode_names = None
     else:
         episode_names = None
-
-    if len(files.original) != len(episode_names):
-        Colors.print_wrn(
-                "Number of episodes mathced differs from definitions in file")
     if options.create_dirs:
         files.dest_dir = join(
                 files.dest_dir,
@@ -262,10 +261,10 @@ def fix_with_file(files, series_info, options):
                 'Season {0:0>2}'.format(series_info.season)
         )
 
-    links = prepare_links(files, series_info, episode_names)
+    links_map = prepare_links(files, series_info, episode_names)
 
     Colors.print_header('Theese links will be created:')
-    Colors.print_list(list(links.values()))
+    Colors.print_list(list(links_map.values()))
     if not prompt_yes_no("Continue?"):
         print('Aborting...')
         exit(0)
@@ -273,16 +272,16 @@ def fix_with_file(files, series_info, options):
     if not isdir(files.dest_dir):
         makedirs(abspath(files.dest_dir))
 
-    #Force is specified, delete dest file
-    if force and isfile(dest):
-        print('[-f] Deleting existing file link {0}'.format(dest))
-        remove(dest)
+    for source, dest in links_map.items():
+        #Force is specified, delete dest file
+        if options.force and isfile(dest):
+            print('[-f] Deleting existing file link {0}'.format(dest))
+            remove(dest)
 
-    try:
-        print('Creating link {0}'.format(dest))
-        symlink(original_file, dest)
-    except Exception as ex:
-        print(str(ex))
+        try:
+            symlink(source, dest)
+        except Exception as ex:
+            print(str(ex))
 
 
 def main():
