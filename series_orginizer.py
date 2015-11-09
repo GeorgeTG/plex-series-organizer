@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+VERSION = 0.5
 import argparse
 import re
 from os import listdir, symlink, makedirs, remove
@@ -136,7 +136,7 @@ def parse_args():
     )
 
     parser.add_argument('--version',
-        action='version', version='%(prog)s 0.5'
+        action='version', version='%(prog)s ' + str(VERSION)
     )
     return parser.parse_args()
 
